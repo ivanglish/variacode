@@ -1,7 +1,7 @@
 # Security Group for the Application Load Balancer
 resource "aws_security_group" "alb_sg" {
   name   = "alb-sg-${terraform.workspace}"
-  vpc_id = data.aws_vpc.existing.id
+  vpc_id = aws_vpc.main.id
 
   ingress {
     from_port   = 80
@@ -26,7 +26,7 @@ resource "aws_security_group" "alb_sg" {
 resource "aws_security_group" "ecs_sg" {
   name        = "ecs-web-sg-${terraform.workspace}"
   description = "Allow HTTP inbound traffic"
-  vpc_id      = data.aws_vpc.existing.id
+  vpc_id      = aws_vpc.main.id
 
   ingress {
     description = "HTTP from anywhere"

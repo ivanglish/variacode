@@ -16,7 +16,8 @@ resource "aws_lb_target_group" "app" {
   name        = "tg-${terraform.workspace}"
   port        = lookup(var.container_port, terraform.workspace)
   protocol    = "HTTP"
-  vpc_id      = data.aws_vpc.existing.id
+  # CHANGE MADE HERE: Pointing to the new VPC resource instead of the data source
+  vpc_id      = aws_vpc.main.id
   target_type = "ip"
 
   tags = {
