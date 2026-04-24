@@ -18,6 +18,6 @@ phases:
   build:
     commands:
       - terraform init
-      - terraform workspace select $TF_WORKSPACE || terraform workspace new $TF_WORKSPACE
+      - terraform workspace select $TARGET_WORKSPACE || terraform workspace new $TARGET_WORKSPACE
       - |
         # ... (rest of your smart build logic)

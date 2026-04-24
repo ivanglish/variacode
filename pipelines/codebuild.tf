@@ -11,7 +11,7 @@ resource "aws_codebuild_project" "terraform_build" {
     privileged_mode = true # Required to run Docker inside CodeBuild
 
     environment_variable {
-      name  = "TF_WORKSPACE"
+      name  = "TARGET_WORKSPACE"
       value = terraform.workspace
     }
   }
