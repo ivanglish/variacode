@@ -1,0 +1,20 @@
+.classpath
+.project
+.settings/
+/bin
+
+.terraform/
+
+# Terraform state files (Since we use S3, these shouldn't be local anyway)
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+
+# Ignore variables files that might contain secrets
+*.tfvars
+*.tfvars.json
+
+# Ignore the lock file if you want, but usually, it's okay to keep 
+# .terraform.lock.hcl

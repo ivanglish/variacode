@@ -1,0 +1,47 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo "Installing Terraform..."
+      - TF_VERSION="1.7.0"
+      - curl -sSL https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip -o tf.zip
+      - unzip tf.zip && mv terraform /usr/local/bin/
+  pre_build:
+    commands:
+      - echo "Logging into Amazon ECR..."
+      - aws ecr get-login-password --region sa-east-1 | docker login --username AWS --password-stdin 967696262685.dkr.ecr.sa-east-1.amazonaws.com
+      - REPO_URL="967696262685.dkr.ecr.sa-east-1.amazonaws.com/variacode"
+      - git fetch --unshallow || true 
+  build:
+    commands:
+      - terraform init
+      - terraform workspace select $TARGET_WORKSPACE || terraform workspace new $TARGET_WORKSPACE
+      - echo "Checking Infrastructure..."
+      # We use a shell script block but ensure clear indentation
+      - |
+        set +e
+        terraform plan -detailed-exitcode -out=tfplan
+        EXIT_CODE=$?
+        set -e
+        
+        if [ "$EXIT_CODE" -eq 2 ]; then
+          echo "Changes detected! Applying infrastructure..."
+          terraform apply -auto-approve tfplan
+        elif [ "$EXIT_CODE" -eq 0 ]; then
+          echo "Infra is stable. Checking for app changes..."
+          # Fix: Use a safer check for the first commit
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || git ls-files)
+          if echo "$CHANGED_FILES" | grep -E "index.html|Dockerfile"; then
+             echo "App changes found. Building Docker image..."
+             docker build --platform linux/amd64 -t webpage .
+             docker tag webpage:latest $REPO_URL:latest
+             docker push $REPO_URL:latest
+             terraform apply -target=module.ecs -auto-approve
+          else
+             echo "Nothing to do. Everything is up to date!"
+          fi
+        else
+          echo "Terraform plan failed with error code $EXIT_CODE"
+          exit 1
+        fi
