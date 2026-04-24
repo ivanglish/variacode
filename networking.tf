@@ -1,11 +1,18 @@
-# Reference your existing VPC
-data "aws_vpc" "existing" {
-  id = "vpc-c2304ca5"
+# 1. Create the VPC (Unique for each workspace)
+resource "aws_vpc" "main" {
+  cidr_block           = terraform.workspace == "prod" ? "10.1.0.0/16" : "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name = "vpc-${terraform.workspace}"
+    name = "csgtest"
+  }
 }
 
+# 2. Create the Internet Gateway (Dedicated to the VPC above)
 resource "aws_internet_gateway" "main" {
-  count  = terraform.workspace == "prod" ? 0 : 1
-  vpc_id = data.aws_vpc.existing.id
+  vpc_id = aws_vpc.main.id
 
   tags = {
     Name = "main-igw-${terraform.workspace}"
@@ -13,12 +20,13 @@ resource "aws_internet_gateway" "main" {
   }
 }
 
+# 3. Create the Route Table
 resource "aws_route_table" "public" {
-  vpc_id = data.aws_vpc.existing.id
+  vpc_id = aws_vpc.main.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = terraform.workspace == "prod" ? data.aws_internet_gateway.existing.id : aws_internet_gateway.main[0].id
+    gateway_id = aws_internet_gateway.main.id
   }
 
   tags = {
@@ -27,21 +35,9 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Associate the Route Table with Subnet 1
-resource "aws_route_table_association" "public_1" {
-  subnet_id      = aws_subnet.public_1.id
-  route_table_id = aws_route_table.public.id
-}
-
-# Associate the Route Table with Subnet 2
-resource "aws_route_table_association" "public_2" {
-  subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.public.id
-}
-
-# Create Subnet 1
+# 4. Create Subnets (Referencing the new VPC)
 resource "aws_subnet" "public_1" {
-  vpc_id                  = data.aws_vpc.existing.id
+  vpc_id                  = aws_vpc.main.id
   cidr_block              = lookup(var.subnet_cidr_1, terraform.workspace)
   availability_zone       = "sa-east-1a"
   map_public_ip_on_launch = true
@@ -52,9 +48,8 @@ resource "aws_subnet" "public_1" {
   }
 }
 
-# Create Subnet 2
 resource "aws_subnet" "public_2" {
-  vpc_id                  = data.aws_vpc.existing.id
+  vpc_id                  = aws_vpc.main.id
   cidr_block              = lookup(var.subnet_cidr_2, terraform.workspace)
   availability_zone       = "sa-east-1b"
   map_public_ip_on_launch = true
@@ -63,4 +58,15 @@ resource "aws_subnet" "public_2" {
     Name = "ecs-subnet-2-${terraform.workspace}"
     name = "csgtest"
   }
+}
+
+# 5. Route Table Associations
+resource "aws_route_table_association" "public_1" {
+  subnet_id      = aws_subnet.public_1.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_2" {
+  subnet_id      = aws_subnet.public_2.id
+  route_table_id = aws_route_table.public.id
 }
