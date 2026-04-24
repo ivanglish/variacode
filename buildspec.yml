@@ -1,0 +1,30 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Environment: $APP_ENVIRONMENT_LABEL"
+      - aws ecr get-login-password --region sa-east-1 | docker login --username AWS --password-stdin 967696262685.dkr.ecr.sa-east-1.amazonaws.com
+      - REPO_URL="967696262685.dkr.ecr.sa-east-1.amazonaws.com/variacode"
+  build:
+    commands:
+      - |
+        # Logic to check for specific file changes
+        # CODEBUILD_RESOLVED_SOURCE_VERSION gives us the current commit hash
+        echo "Checking for changes in index.html or Dockerfile..."
+        
+        # We compare current commit against the previous one (HEAD^)
+        # If this is the first build, we force a build.
+        if git diff --name-only HEAD^ HEAD | grep -E "index.html|Dockerfile"; then
+          echo "Changes detected. Building and Tagging image..."
+          docker build --platform linux/amd64 -t webpage .
+          docker tag webpage:latest $REPO_URL:latest
+          docker push $REPO_URL:latest
+        else
+          echo "No relevant changes found. Skipping Docker build."
+        fi
+      
+      - echo "Running Terraform for $TF_WORKSPACE..."
+      - terraform init
+      - terraform workspace select $TF_WORKSPACE || terraform workspace new $TF_WORKSPACE
+      - terraform apply -auto-approve
