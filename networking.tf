@@ -4,6 +4,7 @@ data "aws_vpc" "existing" {
 }
 
 resource "aws_internet_gateway" "main" {
+  count  = terraform.workspace == "prod" ? 0 : 1
   vpc_id = data.aws_vpc.existing.id
 
   tags = {
@@ -17,7 +18,7 @@ resource "aws_route_table" "public" {
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
+    gateway_id = terraform.workspace == "prod" ? data.aws_internet_gateway.existing.id : aws_internet_gateway.main[0].id
   }
 
   tags = {
