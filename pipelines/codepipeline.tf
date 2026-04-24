@@ -7,6 +7,22 @@ resource "aws_codepipeline" "ecs_pipeline" {
     type     = "S3"
   }
 
+  dynamic "trigger" {
+    for_each = terraform.workspace == "prod" ? [1] : []
+    content {
+      provider_type = "CodeStarSourceConnection"
+      git_configuration {
+        source_action_name = "Source"
+        pull_request {
+          events   = ["CLOSED"] # Triggers when PR is merged
+          branches {
+            includes = ["main"]
+          }
+        }
+      }
+    }
+  }
+
   stage {
     name = "Source"
     action {
@@ -21,8 +37,7 @@ resource "aws_codepipeline" "ecs_pipeline" {
         ConnectionArn    = aws_codestarconnections_connection.github.arn
         FullRepositoryId = "ivanglish/variacode"
         BranchName       = terraform.workspace == "prod" ? "main" : terraform.workspace
-        # Ensures it triggers automatically on every push
-        DetectChanges = true
+        DetectChanges = terraform.workspace == "prod" ? false : true
       }
     }
   }
@@ -39,12 +54,15 @@ resource "aws_codepipeline" "ecs_pipeline" {
       configuration = {
         ProjectName = aws_codebuild_project.terraform_build.name
 
-        # PASS THE 'envs' VALUE TO CODEBUILD:
-        # This sends "testing" or "production" into the build script
         EnvironmentVariables = jsonencode([
           {
             name  = "APP_ENVIRONMENT_LABEL"
             value = var.env_label
+            type  = "PLAINTEXT"
+          },
+          {
+            name  = "TARGET_WORKSPACE"
+            value = terraform.workspace
             type  = "PLAINTEXT"
           }
         ])
