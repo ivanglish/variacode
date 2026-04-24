@@ -20,7 +20,7 @@ resource "aws_codepipeline" "ecs_pipeline" {
       configuration = {
         ConnectionArn    = aws_codestarconnections_connection.github.arn
         FullRepositoryId = "ivanglish/variacode"
-        BranchName       = terraform.workspace == "prod" ? "master" : terraform.workspace
+        BranchName       = terraform.workspace == "prod" ? "main" : terraform.workspace
         # Ensures it triggers automatically on every push
         DetectChanges = true
       }
