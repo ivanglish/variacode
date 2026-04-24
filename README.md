@@ -1,99 +1,112 @@
-ECS Fargate Multi-Environment Infrastructure
-This repository contains the Infrastructure as Code (IaC) and application source code for a containerized static web application deployed on AWS ECS Fargate. The project leverages Terraform Workspaces and AWS CodePipeline to provide a fully automated, scalable, and environment-isolated deployment workflow.
+# ECS Fargate Multi-Environment Infrastructure
 
-🏗 Architecture Overview
-The infrastructure is designed for high availability and security. It utilizes a regional networking strategy in São Paulo (sa-east-1) to serve traffic via an Application Load Balancer (ALB).
+This repository contains Infrastructure as Code (Terraform) and application code for a static containerized web app running on AWS ECS Fargate.  
+It is designed for **environment isolation (`test` and `prod`)**, safe promotion through Pull Requests, and repeatable CI/CD with AWS CodePipeline + CodeBuild.
 
-Core Components:
-Compute: AWS ECS Fargate (Serverless container execution).
+## Architecture Diagram
 
-Networking: Custom VPC logic with public subnets across multiple Availability Zones, managed dynamically via Terraform.
+![Alt text](images/variacode_arch.png)
 
-Traffic Management: Application Load Balancer (ALB) providing a single, persistent DNS entry point.
+## Architecture Overview
 
-Security: Tiered Security Groups (ALB-to-ECS) and IAM Execution Roles for granular permission control.
+Main AWS components:
 
-Monitoring: Integrated CloudWatch Log Groups for real-time application forensics.
+- **Compute:** ECS Fargate service for container execution.
+- **Network:** VPC, subnets, routing, and security groups for controlled ingress/egress.
+- **Traffic:** Application Load Balancer (ALB) as entry point.
+- **Security:** IAM roles and least-privilege permissions for ECS, CodePipeline, and CodeBuild.
+- **Observability:** CloudWatch logs for deployment and runtime visibility.
 
-🚀 CI/CD Pipeline & Branching Strategy
-We utilize a Branch-per-Environment strategy to ensure code quality and stability across different stages of the lifecycle.
+## Reusability Across Environments (Test and Prod)
 
-Branching Model:
-test Branch: Used for active development and integration testing. Every push to this branch triggers the Test Pipeline.
+The implementation is built around Terraform workspaces and reusable composition:
 
-main Branch: Represents the production-ready state. This branch only accepts Pull Requests (PRs). Every merge to main triggers the Production Pipeline.
+- `terraform.workspace` drives environment-specific behavior (`test` vs `prod`).
+- A shared root configuration is reused for both environments with different parameters.
+- Pipeline resources are encapsulated in the `pipelines` module and instantiated from `main.tf`.
+- ECS updates can be selectively applied (`-target=module.ecs`) when only app artifacts change.
 
-The Pipeline Workflow:
-Source: AWS CodeStar Connection monitors GitHub for pushes.
+This approach keeps one IaC codebase while still allowing different lifecycle behavior per environment.
 
-Smart Build (CodeBuild): * Detects changes specifically in index.html or Dockerfile.
+## Repository Structure and Branching Strategy
 
-If changes are detected, it builds a Linux/AMD64 image and pushes it to ECR.
+Current structure:
 
-If only infrastructure files change, it skips the Docker build to save time.
-
-Deploy (Terraform):
-
-Dynamically selects the correct Terraform Workspace (test or prod).
-
-Executes terraform apply to synchronize the cloud state with the code.
-
-📂 Repository Structure
-Plaintext
+```text
 .
-├── modules/                # Reusable Terraform logic
-│   ├── networking/         # VPC, Subnets, and IGW
-│   ├── ecs/                # Cluster, Services, and Task Definitions
-│   └── iam/                # Roles and Policies
-├── environments/
-│   ├── variables.tf        # Environment-specific lookups (test vs prod)
-│   ├── providers.tf        # AWS and Version configurations
-│   └── main.tf             # Root module calling reusable modules
-├── src/
-│   ├── index.html          # Application source code
-│   └── Dockerfile          # Container configuration
-├── buildspec.yml           # CI/CD instructions for AWS CodeBuild
-└── README.md               # This documentation
-🛠 Terraform Best Practices
-To maintain a "Professional Grade" infrastructure, we adhere to the following principles:
+├── main.tf                  # Calls the reusable pipelines module
+├── provider.tf              # Provider and Terraform configuration
+├── var.tf                   # Environment mapping and variables
+├── networking.tf            # VPC and subnet definitions
+├── alb.tf                   # Load balancer resources
+├── sg.tf                    # Security groups
+├── ecs.tf                   # ECS cluster/service/task resources
+├── iam.tf                   # IAM resources
+├── output.tf                # Outputs
+├── buildspec.yml            # CodeBuild logic (Terraform + Docker flow)
+├── pipelines/
+│   ├── artifacts.tf
+│   ├── codebuild.tf
+│   ├── codepipeline.tf
+│   ├── github_connection.tf
+│   ├── iam.tf
+│   └── variables.tf
+├── Dockerfile
+├── index.html
+└── README.md
+```
 
-Modularization: Instead of one giant file, we split code into logic-based modules. This makes the code readable and allows us to reuse the same networking logic for both Test and Prod.
+Branching model:
 
-Parameterization: We use lookup() functions tied to terraform.workspace. Hardcoding is strictly avoided to ensure the code remains flexible.
+- **`test`:** integration and validation branch. Pushes trigger the test pipeline.
+- **`main`:** production branch.  
+  **No direct commits to production. Production changes are allowed only through Pull Requests (PR) merged into `main`.**
 
-Remote State Locking: The state is stored in S3 with state locking enabled, preventing two developers (or two pipelines) from corrupting the infrastructure state simultaneously.
+## CI/CD Pipeline Setup (AWS CodePipeline)
 
-Version Pinning: We lock provider versions (e.g., ~> 5.0) to ensure that an update to the AWS plugin doesn't unexpectedly break our deployment.
+This project uses **AWS CodePipeline (V2)** with **AWS CodeBuild**:
 
-🤝 Git & Collaboration Best Practices
-Efficiency in a team environment depends on how we interact with the repository:
+1. **Source stage**
+   - Reads from GitHub via CodeStar Connection.
+   - `test` pipeline reacts to branch updates.
+   - `prod` pipeline is configured to react to merged PR events into `main`.
 
-Atomic Commits: Commit often and keep changes small. One commit should ideally represent one logical change (e.g., "Add health check to ALB").
+2. **Deploy stage (CodeBuild + Terraform)**
+   - Runs `terraform init`.
+   - Selects/creates the target workspace (`test` or `prod`).
+   - Executes `terraform plan -detailed-exitcode`.
+   - If infra changes exist, applies full plan.
+   - If infra is unchanged, checks app changes (`index.html` / `Dockerfile`), builds and pushes image, then applies targeted ECS update.
 
-Descriptive Messages: Use the imperative mood (e.g., "Fix subnet CIDR overlap" instead of "Fixed some stuff").
+## Creating Pipelines Locally (`-target`)
 
-Pull Request Reviews: No code should reach the main branch without a peer review. This is our primary defense against infrastructure misconfigurations and security leaks.
+For initial bootstrap, create only pipeline prerequisites first to avoid dependency deadlocks and to speed up creation:
 
-Local Validation: Always run terraform plan on your local machine before pushing to a branch to catch syntax errors early.
+```bash
+terraform init
+terraform workspace select test || terraform workspace new test
+terraform plan -target=module.deployment_infrastructure
+terraform apply -target=module.deployment_infrastructure
+```
 
-📖 How to Deploy
-Local Development
-Initialize: terraform init
+You can repeat with `prod` workspace as needed:
 
-Switch Workspace: terraform workspace select test
+```bash
+terraform workspace select prod || terraform workspace new prod
+terraform apply -target=module.deployment_infrastructure
+```
 
-Preview: terraform plan
+> Recommendation: use `-target` only for bootstrap/recovery scenarios, then return to full `terraform plan/apply` for normal operations.
 
-Apply: terraform apply
 
-Via Pipeline
-Simply push your changes to your working branch:
+## Git and Collaboration Best Practices
 
-Bash
-git checkout test
-git add .
-git commit -m "Update homepage content"
-git push origin test
-The AWS CodePipeline will take it from there.
+- Commit frequently in small, atomic changes.
+- Write descriptive, imperative commit messages.
+- Open PRs early; review infra changes with at least one peer.
+- Keep `main` protected and PR-only for production promotion.
+- Include plan output and diagram updates in infra PRs when relevant.
 
-Developed by Ivan — Focused on Scalability and Automation.
+## Future Improvement
+
+- **Automate initial GitHub connection bootstrap for pipelines** so the first-time manual setup in CodeStar Connection is minimized or eliminated.
