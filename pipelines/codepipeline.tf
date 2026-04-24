@@ -1,7 +1,8 @@
 resource "aws_codepipeline" "ecs_pipeline" {
   name     = "pipeline-${terraform.workspace}"
   role_arn = aws_iam_role.codepipeline_role.arn
-
+  pipeline_type = "V2"
+  
   artifact_store {
     location = aws_s3_bucket.codepipeline_artifacts.bucket
     type     = "S3"
