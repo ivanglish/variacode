@@ -1,7 +1,7 @@
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "codepipeline_artifacts" {
-  bucket = "variacode-cp-artifacts-${terraform.workspace}-${data.aws_caller_identity.current.account_id}"
+  bucket = "variacode-cp-artifacts-${var.environment}-${data.aws_caller_identity.current.account_id}"
 
   tags = {
     name = "csgtest"

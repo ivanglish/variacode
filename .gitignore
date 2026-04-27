@@ -19,4 +19,4 @@ crash.log
 # Ignore the lock file if you want, but usually, it's okay to keep 
 # .terraform.lock.hcl
 .cursor_tmp_launchctl.txt
-.cursor_tmp_timed.log
+.cursor_tmp_timed.logdo you know 13

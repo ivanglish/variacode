@@ -1,5 +1,5 @@
 resource "aws_codebuild_project" "terraform_build" {
-  name         = "terraform-ecs-build-${terraform.workspace}"
+  name         = "terraform-ecs-build-${var.environment}"
   service_role = aws_iam_role.codebuild_role.arn
 
   artifacts { type = "CODEPIPELINE" }
@@ -12,7 +12,7 @@ resource "aws_codebuild_project" "terraform_build" {
 
     environment_variable {
       name  = "TARGET_WORKSPACE"
-      value = terraform.workspace
+      value = var.environment
     }
   }
 

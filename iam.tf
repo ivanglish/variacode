@@ -1,6 +1,6 @@
 # The "Trust Policy" - allows ECS to use this role
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "ecs_task_execution_role_${terraform.workspace}"
+  name = "ecs_task_execution_role_${local.environment_name}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

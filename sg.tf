@@ -1,6 +1,6 @@
 # Security Group for the Application Load Balancer
 resource "aws_security_group" "alb_sg" {
-  name   = "alb-sg-${terraform.workspace}"
+  name   = "alb-sg-${local.environment_name}"
   vpc_id = aws_vpc.main.id
 
   ingress {
@@ -24,21 +24,21 @@ resource "aws_security_group" "alb_sg" {
 
 # Security Group to allow Web Traffic
 resource "aws_security_group" "ecs_sg" {
-  name        = "ecs-web-sg-${terraform.workspace}"
+  name        = "ecs-web-sg-${local.environment_name}"
   description = "Allow HTTP inbound traffic"
   vpc_id      = aws_vpc.main.id
 
   ingress {
     description = "HTTP from anywhere"
-    from_port   = lookup(var.container_port, terraform.workspace)
-    to_port     = lookup(var.container_port, terraform.workspace)
+    from_port   = local.env_config.container_port
+    to_port     = local.env_config.container_port
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    from_port       = lookup(var.container_port, terraform.workspace)
-    to_port         = lookup(var.container_port, terraform.workspace)
+    from_port       = local.env_config.container_port
+    to_port         = local.env_config.container_port
     protocol        = "tcp"
     security_groups = [aws_security_group.alb_sg.id]
   }

@@ -1,5 +1,5 @@
 resource "aws_cloudwatch_log_group" "ecs_logs" {
-  name              = "/ecs/webpage-${terraform.workspace}"
+  name              = "/ecs/webpage-${local.environment_name}"
   retention_in_days = 7
 
   tags = {
@@ -9,7 +9,7 @@ resource "aws_cloudwatch_log_group" "ecs_logs" {
 
 
 resource "aws_ecs_cluster" "main" {
-  name = "app-cluster-${terraform.workspace}"
+  name = "app-cluster-${local.environment_name}"
 
   setting {
     name  = "containerInsights"
@@ -22,7 +22,7 @@ resource "aws_ecs_cluster" "main" {
 }
 
 resource "aws_ecs_task_definition" "app" {
-  family                   = "my-app-${terraform.workspace}"
+  family                   = "my-app-${local.environment_name}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = 256
@@ -39,19 +39,19 @@ resource "aws_ecs_task_definition" "app" {
 
       portMappings = [
         {
-          containerPort = lookup(var.container_port, terraform.workspace)
-          hostPort      = lookup(var.container_port, terraform.workspace)
+          containerPort = local.env_config.container_port
+          hostPort      = local.env_config.container_port
         }
       ]
 
       environment = [
         {
           name  = "APP_ENV"
-          value = lookup(var.envs, terraform.workspace)
+          value = local.env_config.env_label
         },
         {
           name  = "WORKSPACE"
-          value = terraform.workspace
+          value = local.environment_name
         }
       ]
       logConfiguration = {
@@ -71,7 +71,7 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_service" "main" {
-  name            = "webpage-service-${terraform.workspace}"
+  name            = "webpage-service-${local.environment_name}"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
@@ -80,7 +80,7 @@ resource "aws_ecs_service" "main" {
   load_balancer {
     target_group_arn = aws_lb_target_group.app.arn
     container_name   = "webpage"
-    container_port   = lookup(var.container_port, terraform.workspace)
+    container_port   = local.env_config.container_port
   }
 
   network_configuration {

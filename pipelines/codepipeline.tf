@@ -1,5 +1,5 @@
 resource "aws_codepipeline" "ecs_pipeline" {
-  name     = "pipeline-${terraform.workspace}"
+  name     = "pipeline-${var.environment}"
   role_arn = aws_iam_role.codepipeline_role.arn
   pipeline_type = "V2"
   
@@ -9,7 +9,7 @@ resource "aws_codepipeline" "ecs_pipeline" {
   }
 
   dynamic "trigger" {
-    for_each = terraform.workspace == "prod" ? [1] : []
+    for_each = var.pr_trigger ? [1] : []
     content {
       provider_type = "CodeStarSourceConnection"
       git_configuration {
@@ -37,8 +37,8 @@ resource "aws_codepipeline" "ecs_pipeline" {
       configuration = {
         ConnectionArn    = aws_codestarconnections_connection.github.arn
         FullRepositoryId = "ivanglish/variacode"
-        BranchName       = terraform.workspace == "prod" ? "main" : terraform.workspace
-        DetectChanges = terraform.workspace == "prod" ? false : true
+        BranchName       = var.source_branch
+        DetectChanges    = var.pr_trigger ? false : true
       }
     }
   }
@@ -63,7 +63,7 @@ resource "aws_codepipeline" "ecs_pipeline" {
           },
           {
             name  = "TARGET_WORKSPACE"
-            value = terraform.workspace
+            value = var.environment
             type  = "PLAINTEXT"
           }
         ])

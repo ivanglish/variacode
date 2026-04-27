@@ -1,5 +1,5 @@
 resource "aws_iam_role" "codebuild_role" {
-  name = "codebuild-service-role-${terraform.workspace}"
+  name = "codebuild-service-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -24,7 +24,7 @@ resource "aws_iam_role_policy_attachment" "codebuild_admin" {
 
 # CodePipeline service role (Source + CodeBuild stages)
 resource "aws_iam_role" "codepipeline_role" {
-  name = "codepipeline-service-role-${terraform.workspace}"
+  name = "codepipeline-service-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -41,7 +41,7 @@ resource "aws_iam_role" "codepipeline_role" {
 }
 
 resource "aws_iam_role_policy" "codepipeline_policy" {
-  name = "codepipeline-inline-${terraform.workspace}"
+  name = "codepipeline-inline-${var.environment}"
   role = aws_iam_role.codepipeline_role.id
 
   policy = jsonencode({

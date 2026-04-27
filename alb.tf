@@ -1,6 +1,6 @@
 # The Application Load Balancer
 resource "aws_lb" "main" {
-  name               = "web-alb-${terraform.workspace}"
+  name               = "web-alb-${local.environment_name}"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
@@ -13,8 +13,8 @@ resource "aws_lb" "main" {
 
 # The Target Group
 resource "aws_lb_target_group" "app" {
-  name        = "tg-${terraform.workspace}"
-  port        = lookup(var.container_port, terraform.workspace)
+  name        = "tg-${local.environment_name}"
+  port        = local.env_config.container_port
   protocol    = "HTTP"
   # CHANGE MADE HERE: Pointing to the new VPC resource instead of the data source
   vpc_id      = aws_vpc.main.id

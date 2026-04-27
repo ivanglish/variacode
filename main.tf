@@ -1,7 +1,8 @@
 module "deployment_infrastructure" {
   source = "./pipelines"
 
-  # Pass the context into the module variables
-  workspace_name = terraform.workspace
-  env_label      = lookup(var.envs, terraform.workspace)
+  environment   = local.environment_name
+  env_label     = local.env_config.env_label
+  source_branch = local.env_config.source_branch
+  pr_trigger    = local.env_config.pr_trigger
 }
