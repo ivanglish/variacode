@@ -1,5 +1,5 @@
 resource "aws_cloudwatch_log_group" "ecs_logs" {
-  name              = "/ecs/webpage-${local.environment_name}"
+  name              = "/ecs/webpage-${var.environment_name}"
   retention_in_days = 7
 
   tags = {
@@ -7,9 +7,8 @@ resource "aws_cloudwatch_log_group" "ecs_logs" {
   }
 }
 
-
 resource "aws_ecs_cluster" "main" {
-  name = "app-cluster-${local.environment_name}"
+  name = "app-cluster-${var.environment_name}"
 
   setting {
     name  = "containerInsights"
@@ -22,14 +21,12 @@ resource "aws_ecs_cluster" "main" {
 }
 
 resource "aws_ecs_task_definition" "app" {
-  family                   = "my-app-${local.environment_name}"
+  family                   = "my-app-${var.environment_name}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = 256
   memory                   = 512
-  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-
-
+  execution_role_arn       = var.ecs_execution_role_arn
 
   container_definitions = jsonencode([
     {
@@ -39,19 +36,19 @@ resource "aws_ecs_task_definition" "app" {
 
       portMappings = [
         {
-          containerPort = local.env_config.container_port
-          hostPort      = local.env_config.container_port
+          containerPort = var.container_port
+          hostPort      = var.container_port
         }
       ]
 
       environment = [
         {
           name  = "APP_ENV"
-          value = local.env_config.env_label
+          value = var.env_label
         },
         {
           name  = "WORKSPACE"
-          value = local.environment_name
+          value = var.environment_name
         }
       ]
       logConfiguration = {
@@ -71,25 +68,23 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_service" "main" {
-  name            = "webpage-service-${local.environment_name}"
+  name            = "webpage-service-${var.environment_name}"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.app.arn
+    target_group_arn = var.target_group_arn
     container_name   = "webpage"
-    container_port   = local.env_config.container_port
+    container_port   = var.container_port
   }
 
   network_configuration {
-    subnets          = [aws_subnet.public_1.id, aws_subnet.public_2.id]
+    subnets          = var.subnet_ids
     assign_public_ip = true
-    security_groups  = [aws_security_group.ecs_sg.id]
+    security_groups  = [var.ecs_security_group_id]
   }
-  # Ensure the LB is created BEFORE the service tries to use it
-  depends_on = [aws_lb_listener.http]
 
   tags = {
     name = "csgtest"
