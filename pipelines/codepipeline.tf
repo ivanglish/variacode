@@ -39,7 +39,6 @@ resource "aws_codepipeline" "ecs_pipeline" {
         FullRepositoryId = "ivanglish/variacode"
         BranchName       = terraform.workspace == "prod" ? "main" : terraform.workspace
         DetectChanges = terraform.workspace == "prod" ? false : true
-        OutputArtifactFormat = "CODEBUILD_SRC_JSON"
       }
     }
   }

@@ -12,7 +12,7 @@ phases:
       - echo "Logging into Amazon ECR..."
       - aws ecr get-login-password --region sa-east-1 | docker login --username AWS --password-stdin 967696262685.dkr.ecr.sa-east-1.amazonaws.com
       - REPO_URL="967696262685.dkr.ecr.sa-east-1.amazonaws.com/variacode"
-      - if [ -d .git ]; then git fetch --unshallow || true; fi
+      - git fetch --unshallow || true 
   build:
     commands:
       - terraform init
